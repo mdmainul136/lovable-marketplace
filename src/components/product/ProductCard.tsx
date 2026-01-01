@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Heart, ShoppingCart, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,10 @@ const ProductCard = ({
   const discount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-xl bg-card shadow-card transition-all duration-300 hover:shadow-card-hover hover:-translate-y-1">
+    <Link 
+      to={`/product/${id}`}
+      className="group relative flex flex-col overflow-hidden rounded-xl bg-card shadow-card transition-all duration-300 hover:shadow-card-hover hover:-translate-y-1"
+    >
       {/* Image Container */}
       <div className="relative aspect-square overflow-hidden bg-muted">
         <img
@@ -120,7 +124,7 @@ const ProductCard = ({
           </div>
         )}
       </div>
-    </div>
+    </Link>
   );
 };
 
