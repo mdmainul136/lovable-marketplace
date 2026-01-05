@@ -1,21 +1,30 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { 
   Search, 
   ShoppingCart, 
   Heart, 
   User, 
-  Menu, 
-  X,
   ChevronDown,
-  Upload
+  Upload,
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/hooks/useAuth";
 
 const Header = () => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [cartCount] = useState(3);
   const [wishlistCount] = useState(5);
+  const { user, isAuthenticated, logout, loading } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full bg-card shadow-navbar">
@@ -83,10 +92,45 @@ const Header = () => {
             )}
           </Button>
 
-          {/* User */}
-          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-accent">
-            <User className="h-5 w-5" />
-          </Button>
+          {/* User / Auth */}
+          {isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-10 gap-2 rounded-full px-3 hover:bg-accent">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <span className="text-xs font-semibold">
+                      {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                  <span className="hidden sm:inline text-sm font-medium">
+                    {user?.firstName || user?.email?.split('@')[0]}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="flex items-center gap-2 text-destructive focus:text-destructive"
+                  onClick={() => logout()}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button asChild variant="ghost" size="sm" className="h-10 gap-2 rounded-full px-4 hover:bg-accent">
+              <Link to="/auth">
+                <User className="h-5 w-5" />
+                <span className="hidden sm:inline text-sm">Login</span>
+              </Link>
+            </Button>
+          )}
 
           {/* More Dropdown */}
           <Button variant="ghost" size="sm" className="hidden lg:flex items-center gap-1 rounded-full hover:bg-accent">
