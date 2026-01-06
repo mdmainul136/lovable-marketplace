@@ -1,19 +1,21 @@
 import axios from 'axios';
 
-// Configure your API base URL here
-// For development, you might use: http://localhost:5000/api/v1
-// For production, use your deployed backend URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+// Laravel API Configuration
+// For development: http://localhost:8000/api
+// For production: your deployed Laravel URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest', // Laravel CSRF compatibility
   },
-  withCredentials: true, // Enable cookies for authentication
+  withCredentials: true, // Enable cookies for Laravel Sanctum
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token (Laravel Sanctum Bearer token)
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
@@ -31,7 +33,15 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      window.location.href = '/auth';
+    }
+    // Handle Laravel validation errors (422)
+    if (error.response?.status === 422) {
+      const validationErrors = error.response.data.errors;
+      if (validationErrors) {
+        const firstError = Object.values(validationErrors)[0];
+        error.message = Array.isArray(firstError) ? firstError[0] : firstError;
+      }
     }
     return Promise.reject(error);
   }
