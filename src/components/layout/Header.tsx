@@ -7,7 +7,8 @@ import {
   User, 
   ChevronDown,
   Upload,
-  LogOut
+  LogOut,
+  LayoutDashboard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,6 +119,12 @@ const Header = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild className="flex items-center gap-2">
+                    <Link to="/admin">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Admin Panel
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem className="flex items-center gap-2">
                     <User className="h-4 w-4" />
                     Profile
