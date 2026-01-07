@@ -7,7 +7,8 @@ import {
   Trash2, 
   Eye,
   Filter,
-  Download
+  Download,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,90 +37,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-
-// Mock data - in real app this would come from API
-const mockProducts = [
-  { 
-    id: "1", 
-    name: "Wireless Earbuds Pro", 
-    sku: "WEP-001", 
-    price: 2500, 
-    stock: 145, 
-    category: "Electronics",
-    status: "active",
-    image: "/placeholder.svg"
-  },
-  { 
-    id: "2", 
-    name: "Smart Watch Series 5", 
-    sku: "SWS-005", 
-    price: 8500, 
-    stock: 32, 
-    category: "Electronics",
-    status: "active",
-    image: "/placeholder.svg"
-  },
-  { 
-    id: "3", 
-    name: "Leather Wallet Premium", 
-    sku: "LWP-012", 
-    price: 1800, 
-    stock: 0, 
-    category: "Accessories",
-    status: "out_of_stock",
-    image: "/placeholder.svg"
-  },
-  { 
-    id: "4", 
-    name: "Cotton T-Shirt Pack (3pcs)", 
-    sku: "CTP-003", 
-    price: 1200, 
-    stock: 250, 
-    category: "Fashion",
-    status: "active",
-    image: "/placeholder.svg"
-  },
-  { 
-    id: "5", 
-    name: "Bluetooth Speaker Mini", 
-    sku: "BSM-007", 
-    price: 3200, 
-    stock: 18, 
-    category: "Electronics",
-    status: "low_stock",
-    image: "/placeholder.svg"
-  },
-  { 
-    id: "6", 
-    name: "Running Shoes Sport", 
-    sku: "RSS-022", 
-    price: 4500, 
-    stock: 65, 
-    category: "Fashion",
-    status: "active",
-    image: "/placeholder.svg"
-  },
-  { 
-    id: "7", 
-    name: "Stainless Steel Water Bottle", 
-    sku: "SSW-015", 
-    price: 850, 
-    stock: 120, 
-    category: "Home",
-    status: "active",
-    image: "/placeholder.svg"
-  },
-  { 
-    id: "8", 
-    name: "Laptop Stand Adjustable", 
-    sku: "LSA-009", 
-    price: 2200, 
-    stock: 8, 
-    category: "Electronics",
-    status: "low_stock",
-    image: "/placeholder.svg"
-  },
-];
+import { useAdminProducts, useDeleteProduct, useBulkDeleteProducts } from "@/hooks/useAdminData";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   active: { 
@@ -145,12 +64,15 @@ export default function AdminProducts() {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  const filteredProducts = mockProducts.filter((product) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.sku.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+  const { data, isLoading, error } = useAdminProducts({
+    search: searchQuery || undefined,
+    category: categoryFilter !== "all" ? categoryFilter : undefined,
   });
+
+  const deleteProduct = useDeleteProduct();
+  const bulkDeleteProducts = useBulkDeleteProducts();
+
+  const products = data?.data || [];
 
   const toggleProduct = (productId: string) => {
     setSelectedProducts((prev) =>
@@ -161,12 +83,37 @@ export default function AdminProducts() {
   };
 
   const toggleAll = () => {
-    if (selectedProducts.length === filteredProducts.length) {
+    if (selectedProducts.length === products.length) {
       setSelectedProducts([]);
     } else {
-      setSelectedProducts(filteredProducts.map((p) => p.id));
+      setSelectedProducts(products.map((p) => p.id));
     }
   };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this product?")) {
+      deleteProduct.mutate(id);
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (confirm(`Are you sure you want to delete ${selectedProducts.length} products?`)) {
+      bulkDeleteProducts.mutate(selectedProducts, {
+        onSuccess: () => setSelectedProducts([]),
+      });
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Products</h1>
+          <p className="text-destructive">Failed to load products. Make sure your Laravel API is running.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -228,7 +175,7 @@ export default function AdminProducts() {
             <div>
               <CardTitle>All Products</CardTitle>
               <CardDescription>
-                {filteredProducts.length} products found
+                {isLoading ? "Loading..." : `${data?.meta?.total || products.length} products found`}
               </CardDescription>
             </div>
             {selectedProducts.length > 0 && (
@@ -236,7 +183,13 @@ export default function AdminProducts() {
                 <span className="text-sm text-muted-foreground">
                   {selectedProducts.length} selected
                 </span>
-                <Button variant="outline" size="sm" className="text-destructive">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-destructive"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleteProducts.isPending}
+                >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </Button>
@@ -245,82 +198,91 @@ export default function AdminProducts() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
-                    onCheckedChange={toggleAll}
-                  />
-                </TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell>
+          {isLoading ? (
+            <div className="p-8 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedProducts.includes(product.id)}
-                      onCheckedChange={() => toggleProduct(product.id)}
+                      checked={selectedProducts.length === products.length && products.length > 0}
+                      onCheckedChange={toggleAll}
                     />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-                        <img 
-                          src={product.image} 
-                          alt={product.name}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <span className="font-medium line-clamp-1">{product.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{product.sku}</TableCell>
-                  <TableCell>{product.category}</TableCell>
-                  <TableCell className="text-right font-medium">৳{product.price.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{product.stock}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={statusConfig[product.status].className}>
-                      {statusConfig[product.status].label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                  </TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Stock</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {products.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedProducts.includes(product.id)}
+                        onCheckedChange={() => toggleProduct(product.id)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                          <img 
+                            src={product.image || "/placeholder.svg"} 
+                            alt={product.name}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <span className="font-medium line-clamp-1">{product.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{product.sku}</TableCell>
+                    <TableCell>{product.category}</TableCell>
+                    <TableCell className="text-right font-medium">৳{product.price.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{product.stock}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={statusConfig[product.status]?.className || statusConfig.active.className}>
+                        {statusConfig[product.status]?.label || product.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => handleDelete(product.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
