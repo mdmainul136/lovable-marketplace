@@ -9,7 +9,8 @@ import {
   XCircle,
   CheckCircle,
   Clock,
-  Package
+  Package,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,91 +38,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-// Mock data
-const mockOrders = [
-  { 
-    id: "ORD-001", 
-    customer: "Ahmed Rahman",
-    email: "ahmed@example.com",
-    items: 3,
-    total: 12500,
-    status: "pending",
-    paymentStatus: "paid",
-    date: "2024-01-15 10:30 AM"
-  },
-  { 
-    id: "ORD-002", 
-    customer: "Fatima Begum",
-    email: "fatima@example.com",
-    items: 1,
-    total: 4500,
-    status: "processing",
-    paymentStatus: "paid",
-    date: "2024-01-15 09:15 AM"
-  },
-  { 
-    id: "ORD-003", 
-    customer: "Karim Uddin",
-    email: "karim@example.com",
-    items: 5,
-    total: 28000,
-    status: "shipped",
-    paymentStatus: "paid",
-    date: "2024-01-14 04:45 PM"
-  },
-  { 
-    id: "ORD-004", 
-    customer: "Nasrin Akter",
-    email: "nasrin@example.com",
-    items: 2,
-    total: 6800,
-    status: "delivered",
-    paymentStatus: "paid",
-    date: "2024-01-14 02:30 PM"
-  },
-  { 
-    id: "ORD-005", 
-    customer: "Rafiq Islam",
-    email: "rafiq@example.com",
-    items: 1,
-    total: 2200,
-    status: "cancelled",
-    paymentStatus: "refunded",
-    date: "2024-01-13 11:20 AM"
-  },
-  { 
-    id: "ORD-006", 
-    customer: "Sumaiya Khan",
-    email: "sumaiya@example.com",
-    items: 4,
-    total: 15600,
-    status: "confirmed",
-    paymentStatus: "pending",
-    date: "2024-01-13 09:00 AM"
-  },
-  { 
-    id: "ORD-007", 
-    customer: "Hasan Ali",
-    email: "hasan@example.com",
-    items: 2,
-    total: 8900,
-    status: "processing",
-    paymentStatus: "paid",
-    date: "2024-01-12 03:15 PM"
-  },
-  { 
-    id: "ORD-008", 
-    customer: "Ruma Begum",
-    email: "ruma@example.com",
-    items: 6,
-    total: 34500,
-    status: "delivered",
-    paymentStatus: "paid",
-    date: "2024-01-12 01:00 PM"
-  },
-];
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAdminOrders, useUpdateOrderStatus, useCancelOrder } from "@/hooks/useAdminData";
 
 const orderStatusConfig: Record<string, { label: string; className: string; icon: React.ElementType }> = {
   pending: { 
@@ -175,27 +93,46 @@ const paymentStatusConfig: Record<string, { label: string; className: string }> 
   },
 };
 
-const orderStats = [
-  { label: "All Orders", value: "all", count: 156 },
-  { label: "Pending", value: "pending", count: 12 },
-  { label: "Processing", value: "processing", count: 8 },
-  { label: "Shipped", value: "shipped", count: 15 },
-  { label: "Delivered", value: "delivered", count: 112 },
-  { label: "Cancelled", value: "cancelled", count: 9 },
-];
-
 export default function AdminOrders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredOrders = mockOrders.filter((order) => {
-    const matchesSearch = 
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  const { data, isLoading, error } = useAdminOrders({
+    search: searchQuery || undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
   });
+
+  const updateOrderStatus = useUpdateOrderStatus();
+  const cancelOrder = useCancelOrder();
+
+  const orders = data?.data || [];
+  const stats = data?.stats || { all: 0, pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0 };
+
+  const orderStats = [
+    { label: "All Orders", value: "all", count: stats.all },
+    { label: "Pending", value: "pending", count: stats.pending },
+    { label: "Processing", value: "processing", count: stats.processing },
+    { label: "Shipped", value: "shipped", count: stats.shipped },
+    { label: "Delivered", value: "delivered", count: stats.delivered },
+    { label: "Cancelled", value: "cancelled", count: stats.cancelled },
+  ];
+
+  const handleCancelOrder = (id: string) => {
+    if (confirm("Are you sure you want to cancel this order?")) {
+      cancelOrder.mutate(id);
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
+          <p className="text-destructive">Failed to load orders. Make sure your Laravel API is running.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -269,80 +206,92 @@ export default function AdminOrders() {
         <CardHeader className="pb-3">
           <CardTitle>Order List</CardTitle>
           <CardDescription>
-            {filteredOrders.length} orders found
+            {isLoading ? "Loading..." : `${data?.meta?.total || orders.length} orders found`}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead className="text-center">Items</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.map((order) => {
-                const StatusIcon = orderStatusConfig[order.status].icon;
-                return (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.id}</TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{order.customer}</div>
-                        <div className="text-sm text-muted-foreground">{order.email}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">{order.items}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      ৳{order.total.toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={orderStatusConfig[order.status].className}>
-                        <StatusIcon className="mr-1 h-3 w-3" />
-                        {orderStatusConfig[order.status].label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={paymentStatusConfig[order.paymentStatus].className}>
-                        {paymentStatusConfig[order.paymentStatus].label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{order.date}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Truck className="mr-2 h-4 w-4" />
-                            Update Status
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Cancel Order
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          {isLoading ? (
+            <div className="p-8 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead className="text-center">Items</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order) => {
+                  const statusConf = orderStatusConfig[order.status] || orderStatusConfig.pending;
+                  const StatusIcon = statusConf.icon;
+                  const paymentConf = paymentStatusConfig[order.paymentStatus] || paymentStatusConfig.pending;
+                  
+                  return (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.id}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{order.customer}</div>
+                          <div className="text-sm text-muted-foreground">{order.email}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">{order.items}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        ৳{order.total.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={statusConf.className}>
+                          <StatusIcon className="mr-1 h-3 w-3" />
+                          {statusConf.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={paymentConf.className}>
+                          {paymentConf.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{order.date}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Truck className="mr-2 h-4 w-4" />
+                              Update Status
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleCancelOrder(order.id)}
+                            >
+                              <XCircle className="mr-2 h-4 w-4" />
+                              Cancel Order
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

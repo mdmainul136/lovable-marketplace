@@ -3,10 +3,9 @@ import {
   Package, 
   ShoppingCart, 
   Users, 
-  TrendingUp, 
-  TrendingDown,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -17,8 +16,6 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell
@@ -26,74 +23,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-
-const statsCards = [
-  {
-    title: "Total Revenue",
-    value: "৳2,45,680",
-    change: "+12.5%",
-    trend: "up",
-    icon: DollarSign,
-    description: "vs last month",
-  },
-  {
-    title: "Total Orders",
-    value: "1,234",
-    change: "+8.2%",
-    trend: "up",
-    icon: ShoppingCart,
-    description: "vs last month",
-  },
-  {
-    title: "Total Products",
-    value: "456",
-    change: "+3",
-    trend: "up",
-    icon: Package,
-    description: "new this week",
-  },
-  {
-    title: "Total Customers",
-    value: "2,890",
-    change: "-2.1%",
-    trend: "down",
-    icon: Users,
-    description: "vs last month",
-  },
-];
-
-const revenueData = [
-  { month: "Jan", revenue: 45000, orders: 120 },
-  { month: "Feb", revenue: 52000, orders: 145 },
-  { month: "Mar", revenue: 48000, orders: 132 },
-  { month: "Apr", revenue: 61000, orders: 178 },
-  { month: "May", revenue: 55000, orders: 156 },
-  { month: "Jun", revenue: 67000, orders: 198 },
-  { month: "Jul", revenue: 72000, orders: 215 },
-];
-
-const categoryData = [
-  { name: "Electronics", value: 35, color: "hsl(var(--primary))" },
-  { name: "Fashion", value: 28, color: "hsl(var(--category-2))" },
-  { name: "Home", value: 20, color: "hsl(var(--category-3))" },
-  { name: "Beauty", value: 17, color: "hsl(var(--category-4))" },
-];
-
-const recentOrders = [
-  { id: "ORD001", customer: "Ahmed Rahman", amount: "৳4,500", status: "delivered", date: "2 hours ago" },
-  { id: "ORD002", customer: "Fatima Begum", amount: "৳2,800", status: "processing", date: "3 hours ago" },
-  { id: "ORD003", customer: "Karim Uddin", amount: "৳7,200", status: "pending", date: "5 hours ago" },
-  { id: "ORD004", customer: "Nasrin Akter", amount: "৳1,950", status: "shipped", date: "6 hours ago" },
-  { id: "ORD005", customer: "Rafiq Islam", amount: "৳3,400", status: "delivered", date: "8 hours ago" },
-];
-
-const topProducts = [
-  { name: "Wireless Earbuds Pro", sales: 234, revenue: "৳46,800" },
-  { name: "Smart Watch Series 5", sales: 189, revenue: "৳94,500" },
-  { name: "Leather Wallet Premium", sales: 156, revenue: "৳23,400" },
-  { name: "Cotton T-Shirt Pack", sales: 142, revenue: "৳17,040" },
-  { name: "Bluetooth Speaker Mini", sales: 128, revenue: "৳25,600" },
-];
+import { useAdminDashboard } from "@/hooks/useAdminData";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const statusColors: Record<string, string> = {
   delivered: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -103,6 +34,81 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminDashboard() {
+  const { data, isLoading, error } = useAdminDashboard();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="shadow-card">
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-24" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-32 mb-2" />
+                <Skeleton className="h-3 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-destructive">Failed to load dashboard data. Make sure your Laravel API is running.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const statsCards = [
+    {
+      title: "Total Revenue",
+      value: `৳${data?.stats.totalRevenue?.toLocaleString() || 0}`,
+      change: `${data?.stats.revenueChange >= 0 ? '+' : ''}${data?.stats.revenueChange || 0}%`,
+      trend: (data?.stats.revenueChange || 0) >= 0 ? "up" : "down",
+      icon: DollarSign,
+      description: "vs last month",
+    },
+    {
+      title: "Total Orders",
+      value: data?.stats.totalOrders?.toLocaleString() || "0",
+      change: `${data?.stats.ordersChange >= 0 ? '+' : ''}${data?.stats.ordersChange || 0}%`,
+      trend: (data?.stats.ordersChange || 0) >= 0 ? "up" : "down",
+      icon: ShoppingCart,
+      description: "vs last month",
+    },
+    {
+      title: "Total Products",
+      value: data?.stats.totalProducts?.toString() || "0",
+      change: `+${data?.stats.newProductsThisWeek || 0}`,
+      trend: "up",
+      icon: Package,
+      description: "new this week",
+    },
+    {
+      title: "Total Customers",
+      value: data?.stats.totalCustomers?.toLocaleString() || "0",
+      change: `${data?.stats.customersChange >= 0 ? '+' : ''}${data?.stats.customersChange || 0}%`,
+      trend: (data?.stats.customersChange || 0) >= 0 ? "up" : "down",
+      icon: Users,
+      description: "vs last month",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -157,7 +163,7 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueData}>
+                <AreaChart data={data?.revenueData || []}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
@@ -210,7 +216,7 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={categoryData}
+                    data={data?.categoryData || []}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -218,7 +224,7 @@ export default function AdminDashboard() {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {categoryData.map((entry, index) => (
+                    {(data?.categoryData || []).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -234,7 +240,7 @@ export default function AdminDashboard() {
               </ResponsiveContainer>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              {categoryData.map((cat) => (
+              {(data?.categoryData || []).map((cat) => (
                 <div key={cat.name} className="flex items-center gap-2">
                   <div 
                     className="h-3 w-3 rounded-full" 
@@ -264,19 +270,19 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentOrders.map((order) => (
+              {(data?.recentOrders || []).map((order) => (
                 <div key={order.id} className="flex items-center justify-between">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{order.id}</span>
-                      <Badge variant="secondary" className={statusColors[order.status]}>
+                      <Badge variant="secondary" className={statusColors[order.status] || statusColors.pending}>
                         {order.status}
                       </Badge>
                     </div>
                     <span className="text-sm text-muted-foreground">{order.customer}</span>
                   </div>
                   <div className="text-right">
-                    <div className="font-medium">{order.amount}</div>
+                    <div className="font-medium">৳{order.amount.toLocaleString()}</div>
                     <div className="text-xs text-muted-foreground">{order.date}</div>
                   </div>
                 </div>
@@ -298,8 +304,8 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {topProducts.map((product, index) => (
-                <div key={product.name} className="flex items-center gap-4">
+              {(data?.topProducts || []).map((product, index) => (
+                <div key={product.id} className="flex items-center gap-4">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">
                     {index + 1}
                   </div>
@@ -307,7 +313,7 @@ export default function AdminDashboard() {
                     <div className="font-medium line-clamp-1">{product.name}</div>
                     <div className="text-sm text-muted-foreground">{product.sales} sales</div>
                   </div>
-                  <div className="font-medium">{product.revenue}</div>
+                  <div className="font-medium">৳{product.revenue.toLocaleString()}</div>
                 </div>
               ))}
             </div>

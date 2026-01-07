@@ -8,7 +8,8 @@ import {
   Mail,
   Ban,
   UserCheck,
-  Shield
+  Shield,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,90 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-// Mock data
-const mockCustomers = [
-  { 
-    id: "1", 
-    name: "Ahmed Rahman",
-    email: "ahmed.rahman@example.com",
-    phone: "+880 1712-345678",
-    orders: 12,
-    totalSpent: 45600,
-    status: "active",
-    joinedAt: "2023-06-15"
-  },
-  { 
-    id: "2", 
-    name: "Fatima Begum",
-    email: "fatima.begum@example.com",
-    phone: "+880 1812-456789",
-    orders: 8,
-    totalSpent: 28900,
-    status: "active",
-    joinedAt: "2023-08-22"
-  },
-  { 
-    id: "3", 
-    name: "Karim Uddin",
-    email: "karim.uddin@example.com",
-    phone: "+880 1912-567890",
-    orders: 3,
-    totalSpent: 12500,
-    status: "active",
-    joinedAt: "2023-11-10"
-  },
-  { 
-    id: "4", 
-    name: "Nasrin Akter",
-    email: "nasrin.akter@example.com",
-    phone: "+880 1612-678901",
-    orders: 15,
-    totalSpent: 67800,
-    status: "vip",
-    joinedAt: "2023-02-05"
-  },
-  { 
-    id: "5", 
-    name: "Rafiq Islam",
-    email: "rafiq.islam@example.com",
-    phone: "+880 1512-789012",
-    orders: 0,
-    totalSpent: 0,
-    status: "inactive",
-    joinedAt: "2024-01-02"
-  },
-  { 
-    id: "6", 
-    name: "Sumaiya Khan",
-    email: "sumaiya.khan@example.com",
-    phone: "+880 1412-890123",
-    orders: 6,
-    totalSpent: 23400,
-    status: "active",
-    joinedAt: "2023-09-18"
-  },
-  { 
-    id: "7", 
-    name: "Hasan Ali",
-    email: "hasan.ali@example.com",
-    phone: "+880 1312-901234",
-    orders: 1,
-    totalSpent: 4500,
-    status: "blocked",
-    joinedAt: "2023-12-01"
-  },
-  { 
-    id: "8", 
-    name: "Ruma Begum",
-    email: "ruma.begum@example.com",
-    phone: "+880 1712-012345",
-    orders: 22,
-    totalSpent: 89000,
-    status: "vip",
-    joinedAt: "2022-11-20"
-  },
-];
+import { useAdminCustomers, useBlockCustomer, useUnblockCustomer, useUpdateCustomerStatus } from "@/hooks/useAdminData";
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   active: { 
@@ -145,14 +63,42 @@ export default function AdminCustomers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredCustomers = mockCustomers.filter((customer) => {
-    const matchesSearch = 
-      customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.phone.includes(searchQuery);
-    const matchesStatus = statusFilter === "all" || customer.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  const { data, isLoading, error } = useAdminCustomers({
+    search: searchQuery || undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
   });
+
+  const blockCustomer = useBlockCustomer();
+  const unblockCustomer = useUnblockCustomer();
+  const updateStatus = useUpdateCustomerStatus();
+
+  const customers = data?.data || [];
+  const stats = data?.stats || { total: 0, active: 0, vip: 0, newThisMonth: 0 };
+
+  const handleBlock = (id: string) => {
+    if (confirm("Are you sure you want to block this customer?")) {
+      blockCustomer.mutate(id);
+    }
+  };
+
+  const handleUnblock = (id: string) => {
+    unblockCustomer.mutate(id);
+  };
+
+  const handleMakeVip = (id: string) => {
+    updateStatus.mutate({ id, status: "vip" });
+  };
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
+          <p className="text-destructive">Failed to load customers. Make sure your Laravel API is running.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -175,25 +121,25 @@ export default function AdminCustomers() {
         <Card className="shadow-card">
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">Total Customers</div>
-            <div className="text-2xl font-bold">2,890</div>
+            <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card className="shadow-card">
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">Active Customers</div>
-            <div className="text-2xl font-bold">2,456</div>
+            <div className="text-2xl font-bold">{stats.active.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card className="shadow-card">
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">VIP Customers</div>
-            <div className="text-2xl font-bold">124</div>
+            <div className="text-2xl font-bold">{stats.vip.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card className="shadow-card">
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">New This Month</div>
-            <div className="text-2xl font-bold">89</div>
+            <div className="text-2xl font-bold">{stats.newThisMonth.toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>
@@ -237,88 +183,97 @@ export default function AdminCustomers() {
         <CardHeader className="pb-3">
           <CardTitle>Customer List</CardTitle>
           <CardDescription>
-            {filteredCustomers.length} customers found
+            {isLoading ? "Loading..." : `${data?.meta?.total || customers.length} customers found`}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead className="text-center">Orders</TableHead>
-                <TableHead className="text-right">Total Spent</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCustomers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                          {customer.name.split(" ").map(n => n[0]).join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{customer.name}</div>
-                        <div className="text-sm text-muted-foreground">{customer.email}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{customer.phone}</TableCell>
-                  <TableCell className="text-center">{customer.orders}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    ৳{customer.totalSpent.toLocaleString()}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className={statusConfig[customer.status].className}>
-                      {statusConfig[customer.status].label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{customer.joinedAt}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Mail className="mr-2 h-4 w-4" />
-                          Send Email
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Shield className="mr-2 h-4 w-4" />
-                          Make VIP
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {customer.status === "blocked" ? (
-                          <DropdownMenuItem>
-                            <UserCheck className="mr-2 h-4 w-4" />
-                            Unblock
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem className="text-destructive">
-                            <Ban className="mr-2 h-4 w-4" />
-                            Block Customer
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {isLoading ? (
+            <div className="p-8 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead className="text-center">Orders</TableHead>
+                  <TableHead className="text-right">Total Spent</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {customers.map((customer) => (
+                  <TableRow key={customer.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                            {customer.name.split(" ").map(n => n[0]).join("")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{customer.name}</div>
+                          <div className="text-sm text-muted-foreground">{customer.email}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{customer.phone}</TableCell>
+                    <TableCell className="text-center">{customer.orders}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      ৳{customer.totalSpent.toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={statusConfig[customer.status]?.className || statusConfig.active.className}>
+                        {statusConfig[customer.status]?.label || customer.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{customer.joinedAt}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Send Email
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleMakeVip(customer.id)}>
+                            <Shield className="mr-2 h-4 w-4" />
+                            Make VIP
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {customer.status === "blocked" ? (
+                            <DropdownMenuItem onClick={() => handleUnblock(customer.id)}>
+                              <UserCheck className="mr-2 h-4 w-4" />
+                              Unblock
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleBlock(customer.id)}
+                            >
+                              <Ban className="mr-2 h-4 w-4" />
+                              Block Customer
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
